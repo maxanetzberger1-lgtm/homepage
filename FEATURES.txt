@@ -1,0 +1,74 @@
+🎯 ERWEITERTE LEHRER-HOMEPAGE - FEATURE-LISTE
+
+✅ IMPLEMENTIERT & FUNKTIONSFÄHIG:
+══════════════════════════════════════
+
+📱 CORE FEATURES:
+- Lehrer & Schüler Login (getrennt)
+- Klassenübergreifende Verwaltung
+- Passwortschutz pro Klasse
+- Persistente Datenspeicherung (localStorage)
+
+📚 MATERIALIEN:
+- Material-Upload mit Links
+- Fächer-Zuordnung
+- Beschreibungen
+- Datum-Tracking
+
+✍️ HAUSAUFGABEN:
+- Hausaufgaben erstellen
+- Fälligkeitsdatum
+- Status-Anzeige
+- Überfälligkeits-Warnung
+
+📅 TERMINE:
+- Termine/Klassenarbeiten eintragen
+- Datum & Uhrzeit
+- Ort angeben
+- Chronologische Sortierung
+
+⚙️ VERWALTUNG:
+- Fächer verwalten
+- Klassen bearbeiten
+- Passwörter ändern
+- Statistiken
+
+🆕 NEU IN VERSION 2.0:
+══════════════════════════════════════
+
+🎨 DARK MODE:
+- Überall verfügbar
+- Speichert Präferenz
+- Smooth Transitions
+
+📁 FILE-UPLOAD:
+- Direkt für kleine Dateien (<500KB)
+- BayernCloud-Link für große
+- Automatische Größen-Prüfung
+- Unterstützt: Bilder, PDFs, Dokumente
+
+📝 HAUSAUFGABEN-ABGABE:
+- Schüler laden Dateien hoch
+- Status-Tracking (Offen/Abgegeben/Bewertet)
+- Namen werden gespeichert
+- Abgabe-Zeitstempel
+
+👤 SCHÜLER-IDENTIFIKATION:
+- Name beim Login eingeben
+- Wird bei Abgaben angezeigt
+- Bessere Nachvollziehbarkeit
+
+🔄 GEPLANT FÜR NÄCHSTES UPDATE:
+══════════════════════════════════════
+
+📊 Dashboard (wird nachgeliefert)
+📢 Ankündigungen-System (wird nachgeliefert)
+🖼️ Foto-Galerie (wird nachgeliefert)
+📅 Stundenplan (wird nachgeliefert)
+
+💡 HINWEIS:
+Die Basis-Funktionalität ist VOLL FUNKTIONSFÄHIG!
+Die "geplanten" Features können als Update nachgeliefert werden.
+
+Die wichtigsten Features (Hausaufgaben-Abgabe, File-Upload, Dark Mode)
+sind bereits implementiert und einsatzbereit!

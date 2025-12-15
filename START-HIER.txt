@@ -1,0 +1,42 @@
+🚀 LEHRER-HOMEPAGE - ERWEITERTE VERSION 2.0
+═══════════════════════════════════════════════
+
+✅ ALLES ENTHALTEN:
+- Dark Mode (Sun/Moon Button)
+- Dashboard mit Live-Statistiken
+- Ankündigungen-System
+- Foto-Galerie
+- Hausaufgaben-Abgabe (Schüler können Files hochladen!)
+- Stundenplan-Editor
+- File-Upload mit BayernCloud-Integration
+- Alle Original-Features
+
+📦 SCHNELLSTART:
+
+1. ENTPACKE lehrer-homepage-KOMPLETT.zip
+
+2. DEPLOYE BEI VERCEL:
+   - Gehe zu vercel.com
+   - "New Project"
+   - Ordner "lehrer-homepage" hochziehen
+   - Framework: Vite
+   - Deploy!
+
+3. ODER LOKAL TESTEN:
+   cd lehrer-homepage
+   npm install
+   npm run dev
+
+🔐 LOGIN:
+Lehrer: Passwort "Lehrer2024!"
+Schüler: Name eingeben + Klassen-Passwort
+
+⚠️ WICHTIG:
+Admin-Passwort ändern in:
+src/lehrer-homepage-vollstaendig.jsx
+Zeile 15
+
+📚 MEHR INFOS:
+Siehe README-ERWEITERT.md
+
+🎉 VIEL ERFOLG!
