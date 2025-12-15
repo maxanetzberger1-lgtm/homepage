@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Upload, Book, Users, Lock, Plus, X, Download, Eye, EyeOff, Trash2, Edit2, Check, AlertCircle, LogOut, FileText, Link as LinkIcon, Save, Clock, Sun, Moon, Image, Bell, Grid, BarChart3, User, CheckCircle, XCircle, Loader, Send } from 'lucide-react';
 
 // Hauptkomponente
-nction LoginScreen({ onAdminLogin, onClassLogin, classes, adminPassword, setAdminPassword, classPassword, setClassPassword, showPassword, setShowPassword, darkMode, toggleDarkMode, studentName, setStudentName }) {
+function LoginScreen({ onAdminLogin, onClassLogin, classes, adminPassword, setAdminPassword, classPassword, setClassPassword, showPassword, setShowPassword, darkMode, toggleDarkMode, studentName, setStudentName }) {
   const [selectedClassForLogin, setSelectedClassForLogin] = useState(null);
 
   return (
