@@ -487,6 +487,19 @@ function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, togg
             onUpdateClass={updateClass}
           />
         )}
+
+        {activeTab === 'dashboard' && (
+          <Dashboard classes={classes} />
+        )}
+
+        {activeTab === 'gallery' && (
+          <GalleryManager 
+            classes={classes}
+            selectedClassId={selectedClassId}
+            setSelectedClassId={setSelectedClassId}
+            onUpdateClass={updateClass}
+          />
+        )}
       </div>
     </div>
   );
@@ -807,184 +820,212 @@ function CreateClassForm({ newClass, setNewClass, onCreate }) {
 
 // Materials Manager
 function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
-  const [newMaterial, setNewMaterial] = useState({
-    title: '',
-    description: '',
-    link: '',
-    subject: ''
-  });
+  const [currentPath, setCurrentPath] = useState([]);
+  const [newFolder, setNewFolder] = useState('');
+  const [newMaterial, setNewMaterial] = useState({ title: '', description: '', subject: '' });
+  const [materialFile, setMaterialFile] = useState(null);
+  const [showFolderInput, setShowFolderInput] = useState(false);
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
-  const addMaterial = () => {
-    if (!selectedClassId) {
-      alert('Bitte wählen Sie zuerst eine Klasse aus');
-      return;
+  // Helper: Navigate in folder structure
+  const getCurrentFolder = () => {
+    if (!selectedClass) return null;
+    let folder = { children: selectedClass.materials || [] };
+    for (let name of currentPath) {
+      folder = folder.children.find(item => item.name === name && item.type === 'folder');
+      if (!folder) return null;
     }
-    if (!newMaterial.title) {
-      alert('Bitte geben Sie einen Titel ein');
+    return folder;
+  };
+
+  // Helper: Update materials with new structure
+  const updateMaterials = (newMaterials) => {
+    onUpdateClass(selectedClassId, { materials: newMaterials });
+  };
+
+  // Add folder
+  const addFolder = () => {
+    if (!selectedClassId || !newFolder.trim()) {
+      alert('Bitte Ordnername eingeben');
       return;
     }
 
-    const material = {
-      ...newMaterial,
-      id: Date.now().toString(),
-      date: new Date().toISOString()
-    };
-
-    const materials = [...(selectedClass.materials || []), material];
-    onUpdateClass(selectedClassId, { materials });
+    const folder = { id: Date.now().toString(), name: newFolder, type: 'folder', children: [] };
+    const materials = [...(selectedClass.materials || [])];
     
-    setNewMaterial({ title: '', description: '', link: '', subject: '' });
-    alert('Material erfolgreich hinzugefügt!');
+    if (currentPath.length === 0) {
+      materials.push(folder);
+    } else {
+      // Add to subfolder
+      let target = { children: materials };
+      for (let name of currentPath) {
+        target = target.children.find(item => item.name === name && item.type === 'folder');
+      }
+      target.children.push(folder);
+    }
+
+    updateMaterials(materials);
+    setNewFolder('');
+    setShowFolderInput(false);
   };
 
-  const deleteMaterial = (materialId) => {
-    if (window.confirm('Material wirklich löschen?')) {
-      const materials = selectedClass.materials.filter(m => m.id !== materialId);
-      onUpdateClass(selectedClassId, { materials });
+  // Add file
+  const addFile = () => {
+    if (!selectedClassId || !newMaterial.title || !materialFile) {
+      alert('Bitte Titel und Datei eingeben');
+      return;
+    }
+
+    const file = { id: Date.now().toString(), name: newMaterial.title, type: 'file', file: materialFile, description: newMaterial.description, subject: newMaterial.subject, date: new Date().toISOString() };
+    const materials = [...(selectedClass.materials || [])];
+    
+    if (currentPath.length === 0) {
+      materials.push(file);
+    } else {
+      let target = { children: materials };
+      for (let name of currentPath) {
+        target = target.children.find(item => item.name === name && item.type === 'folder');
+      }
+      target.children.push(file);
+    }
+
+    updateMaterials(materials);
+    setNewMaterial({ title: '', description: '', subject: '' });
+    setMaterialFile(null);
+  };
+
+  // Delete item
+  const deleteItem = (itemId) => {
+    if (!window.confirm('Wirklich löschen?')) return;
+
+    const materials = [...(selectedClass.materials || [])];
+    
+    if (currentPath.length === 0) {
+      const filtered = materials.filter(item => item.id !== itemId);
+      updateMaterials(filtered);
+    } else {
+      let target = { children: materials };
+      for (let name of currentPath) {
+        target = target.children.find(item => item.name === name && item.type === 'folder');
+      }
+      target.children = target.children.filter(item => item.id !== itemId);
+      updateMaterials(materials);
     }
   };
+
+  const currentFolder = getCurrentFolder();
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Materialien verwalten</h2>
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Materialien verwalten</h2>
 
-      {/* Class Selection */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Klasse auswählen
-        </label>
-        <select
-          value={selectedClassId || ''}
-          onChange={(e) => setSelectedClassId(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 outline-none"
-        >
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Klasse auswählen</label>
+        <select value={selectedClassId || ''} onChange={(e) => { setSelectedClassId(e.target.value); setCurrentPath([]); }} className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:border-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
           <option value="">-- Klasse wählen --</option>
-          {classes.map(cls => (
-            <option key={cls.id} value={cls.id}>
-              {cls.name} {cls.year && `(${cls.year})`}
-            </option>
-          ))}
+          {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name} {cls.year && `(${cls.year})`}</option>)}
         </select>
       </div>
 
       {selectedClass && (
         <>
-          {/* Add Material Form */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Neues Material hinzufügen</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Titel *</label>
-                <input
-                  type="text"
-                  value={newMaterial.title}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, title: e.target.value })}
-                  placeholder="z.B. Arbeitsblatt Kapitel 5"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Beschreibung</label>
-                <textarea
-                  value={newMaterial.description}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, description: e.target.value })}
-                  placeholder="Weitere Informationen zum Material"
-                  rows={3}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Link / URL <span className="text-slate-400 font-normal">(z.B. zu Google Drive, Dropbox, etc.)</span>
-                </label>
-                <input
-                  type="url"
-                  value={newMaterial.link}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, link: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Fach</label>
-                <select
-                  value={newMaterial.subject}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, subject: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-indigo-500 outline-none"
-                >
-                  <option value="">-- Fach wählen --</option>
-                  {selectedClass.subjects?.map(subject => (
-                    <option key={subject} value={subject}>{subject}</option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={addMaterial}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-semibold flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" />
-                Material hinzufügen
-              </button>
+          {/* Breadcrumbs */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-6">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => setCurrentPath([])} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">📁 Root</button>
+              {currentPath.map((folder, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-slate-400">/</span>
+                  <button onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">{folder}</button>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Materials List */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">
-              Vorhandene Materialien ({selectedClass.materials?.length || 0})
+          {/* Actions */}
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            {/* Create Folder */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">📁 Ordner erstellen</h3>
+              {showFolderInput ? (
+                <div className="space-y-3">
+                  <input type="text" value={newFolder} onChange={(e) => setNewFolder(e.target.value)} placeholder="Ordnername (z.B. Mathe, Arbeitsblätter)" className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                  <div className="flex gap-2">
+                    <button onClick={addFolder} className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Erstellen</button>
+                    <button onClick={() => { setShowFolderInput(false); setNewFolder(''); }} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">Abbrechen</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowFolderInput(true)} className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-semibold flex items-center justify-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  Neuer Ordner
+                </button>
+              )}
+            </div>
+
+            {/* Upload File */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">📄 Datei hochladen</h3>
+              <div className="space-y-3">
+                <input type="text" value={newMaterial.title} onChange={(e) => setNewMaterial({ ...newMaterial, title: e.target.value })} placeholder="Titel *" className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                <FileUploadComponent onFileSelect={setMaterialFile} maxSizeKB={500} />
+                {materialFile && <p className="text-sm text-green-600 dark:text-green-400">✓ {materialFile.name}</p>}
+                <button onClick={addFile} className="w-full bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 font-semibold flex items-center justify-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Hochladen
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">
+              Inhalt ({currentFolder?.children?.length || 0} Einträge)
             </h3>
 
-            {!selectedClass.materials || selectedClass.materials.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
+            {!currentFolder || currentFolder.children.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>Noch keine Materialien vorhanden</p>
+                <p>Ordner ist leer</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {selectedClass.materials.map(material => (
-                  <div key={material.id} className="border-2 border-slate-100 rounded-xl p-4 hover:border-emerald-200 transition-all">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {material.subject && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                              {material.subject}
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-500">
-                            {new Date(material.date).toLocaleDateString('de-DE')}
-                          </span>
-                        </div>
-                        <h4 className="font-semibold text-slate-800 mb-1">{material.title}</h4>
-                        {material.description && (
-                          <p className="text-sm text-slate-600 mb-2">{material.description}</p>
-                        )}
-                        {material.link && (
-                          <a
-                            href={material.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-indigo-600 hover:text-indigo-800 inline-flex items-center gap-1"
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            Link öffnen
-                          </a>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => deleteMaterial(material.id)}
-                        className="ml-4 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5 text-red-500" />
-                      </button>
+              <div className="space-y-2">
+                {currentFolder.children.map(item => (
+                  <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
+                    <div className="flex items-center gap-3 flex-1">
+                      {item.type === 'folder' ? (
+                        <>
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+                          </div>
+                          <button onClick={() => setCurrentPath([...currentPath, item.name])} className="text-left flex-1">
+                            <p className="font-semibold text-slate-800 dark:text-white">📁 {item.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{item.children?.length || 0} Einträge</p>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                            <Download className="w-5 h-5 text-purple-600 dark:text-purple-300" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-800 dark:text-white">{item.name}</p>
+                            {item.description && <p className="text-xs text-slate-500 dark:text-slate-400">{item.description}</p>}
+                            {item.file && (
+                              <button onClick={() => downloadFile(item.file, item.name)} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1 flex items-center gap-1">
+                                <Download className="w-3 h-3" />
+                                {item.file.name}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
+                    <button onClick={() => deleteItem(item.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg">
+                      <Trash2 className="w-5 h-5 text-red-500" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -996,7 +1037,7 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
   );
 }
 
-// Homework Manager
+
 function HomeworkManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
   const [newHomework, setNewHomework] = useState({ title: '', description: '', dueDate: '', subject: '' });
   const [viewingSubmissions, setViewingSubmissions] = useState(null);
@@ -1628,55 +1669,89 @@ function ClassViewVollstaendig({ classData, studentName, onLogout, updateClass, 
 
 // Materials List (Student View)
 function MaterialsList({ materials }) {
-  if (materials.length === 0) {
+  const [currentPath, setCurrentPath] = useState([]);
+
+  const getCurrentFolder = () => {
+    let folder = { children: materials || [] };
+    for (let name of currentPath) {
+      folder = folder.children.find(item => item.name === name && item.type === 'folder');
+      if (!folder) return null;
+    }
+    return folder;
+  };
+
+  const currentFolder = getCurrentFolder();
+
+  if (!materials || materials.length === 0) {
     return (
       <div className="text-center py-12">
-        <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-        <p className="text-xl text-slate-500">Noch keine Materialien verfügbar</p>
+        <FileText className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+        <p className="text-xl text-slate-500 dark:text-slate-400">Keine Materialien</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Unterrichtsmaterialien</h2>
-      {materials.map((material) => (
-        <div key={material.id} className="border-2 border-slate-100 rounded-xl p-5 hover:border-emerald-200 hover:shadow-md transition-all">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                {material.subject && (
-                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
-                    {material.subject}
-                  </span>
-                )}
-                <span className="text-sm text-slate-500">
-                  {new Date(material.date).toLocaleDateString('de-DE')}
-                </span>
-              </div>
-              <h3 className="text-lg font-semibold text-slate-800 mb-2">{material.title}</h3>
-              {material.description && (
-                <p className="text-slate-600">{material.description}</p>
+    <div>
+      {/* Breadcrumbs */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setCurrentPath([])} className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium">📁 Root</button>
+          {currentPath.map((folder, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="text-slate-400">/</span>
+              <button onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))} className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium">{folder}</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!currentFolder || currentFolder.children.length === 0 ? (
+        <div className="text-center py-12">
+          <FileText className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+          <p className="text-xl text-slate-500 dark:text-slate-400">Ordner ist leer</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {currentFolder.children.map(item => (
+            <div key={item.id} className="bg-white dark:bg-slate-700 p-4 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md transition-shadow">
+              {item.type === 'folder' ? (
+                <button onClick={() => setCurrentPath([...currentPath, item.name])} className="w-full text-left flex items-center gap-3">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <FileText className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 dark:text-white text-lg">📁 {item.name}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{item.children?.length || 0} Einträge</p>
+                  </div>
+                </button>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                    <Download className="w-6 h-6 text-purple-600 dark:text-purple-300" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 dark:text-white">{item.name}</p>
+                    {item.description && <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{item.description}</p>}
+                    {item.subject && <span className="inline-block mt-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">{item.subject}</span>}
+                    {item.file && (
+                      <button onClick={() => downloadFile(item.file, item.name)} className="mt-2 text-sm text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                        <Download className="w-4 h-4" />
+                        Herunterladen
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
-            {material.link && (
-              <a
-                href={material.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-4 p-3 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition-colors"
-              >
-                <LinkIcon className="w-5 h-5 text-emerald-600" />
-              </a>
-            )}
-          </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
-// Homework List (Student View)
+
 function HomeworkList({ homework, studentName, updateClass }) {
   const [submitting, setSubmitting] = useState(null);
   const [submissionData, setSubmissionData] = useState({ file: null, comment: '' });
