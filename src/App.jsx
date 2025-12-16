@@ -6,6 +6,21 @@ import { Calendar, Upload, Book, Users, Lock, Plus, X, Download, Eye, EyeOff, Tr
 
 // Login-Bildschirm
 
+
+// ==================== HELPER FUNCTIONS ====================
+const downloadFile = (file, filename) => {
+  if (file.type === 'base64') {
+    const link = document.createElement('a');
+    link.href = file.data;
+    link.download = filename || file.name || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else if (file.type === 'link') {
+    window.open(file.data, '_blank');
+  }
+};
+
 // ==================== FILE UPLOAD ====================
 function FileUploadComponent({ onFileSelect, accept = "*", maxSizeKB = 500 }) {
   const [uploading, setUploading] = useState(false);
@@ -277,7 +292,7 @@ function LoginScreen({ onAdminLogin, onClassLogin, classes, adminPassword, setAd
 function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, toggleDarkMode }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedClassId, setSelectedClassId] = useState(null);
-  const [newClass, setNewClass] = useState({ name: '', year: '', password: '', subjects: [] });
+  const [newClass, setNewClass] = useState({ name: '', year: '', password: '', subjects: [], gallery: [] });
 
   const createClass = () => {
     if (!newClass.name || !newClass.password) {
@@ -1095,6 +1110,156 @@ function HomeworkManager({ classes, selectedClassId, setSelectedClassId, onUpdat
   );
 }
 
+
+// ==================== GALLERY MANAGER ====================
+function GalleryManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
+  const [newImage, setNewImage] = useState({ title: '', description: '' });
+  const [imageFile, setImageFile] = useState(null);
+  const selectedClass = classes.find(c => c.id === selectedClassId);
+
+  const addImage = () => {
+    if (!selectedClassId) {
+      alert('Bitte wählen Sie zuerst eine Klasse aus');
+      return;
+    }
+    if (!newImage.title || !imageFile) {
+      alert('Bitte Titel und Bild eingeben');
+      return;
+    }
+
+    const image = { ...newImage, ...imageFile, id: Date.now().toString(), uploadedAt: new Date().toISOString() };
+    const gallery = [...(selectedClass.gallery || []), image];
+    onUpdateClass(selectedClassId, { gallery });
+    
+    setNewImage({ title: '', description: '' });
+    setImageFile(null);
+    alert('Foto erfolgreich hochgeladen!');
+  };
+
+  const deleteImage = (imageId) => {
+    if (window.confirm('Foto wirklich löschen?')) {
+      const gallery = selectedClass.gallery.filter(img => img.id !== imageId);
+      onUpdateClass(selectedClassId, { gallery });
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Foto-Galerie</h2>
+
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Klasse auswählen</label>
+        <select value={selectedClassId || ''} onChange={(e) => setSelectedClassId(e.target.value)} className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:border-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          <option value="">-- Klasse wählen --</option>
+          {classes.map(cls => (
+            <option key={cls.id} value={cls.id}>{cls.name} {cls.year && `(${cls.year})`}</option>
+          ))}
+        </select>
+      </div>
+
+      {selectedClass && (
+        <>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Neues Foto</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Titel *</label>
+                <input type="text" value={newImage.title} onChange={(e) => setNewImage({ ...newImage, title: e.target.value })} placeholder="z.B. Klassenausflug 2024" className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Beschreibung</label>
+                <textarea value={newImage.description} onChange={(e) => setNewImage({ ...newImage, description: e.target.value })} placeholder="Optionale Beschreibung..." rows={2} className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:border-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Foto *</label>
+                <FileUploadComponent onFileSelect={setImageFile} accept="image/*" maxSizeKB={500} />
+                {imageFile && <p className="text-sm text-green-600 dark:text-green-400 mt-2">✓ {imageFile.name}</p>}
+              </div>
+
+              <button onClick={addImage} className="w-full bg-gradient-to-r from-pink-500 to-rose-500 text-white py-3 rounded-xl hover:from-pink-600 hover:to-rose-600 font-semibold flex items-center justify-center gap-2">
+                <Image className="w-5 h-5" />
+                Foto hochladen
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Galerie ({selectedClass.gallery?.length || 0} Fotos)</h3>
+
+            {!selectedClass.gallery || selectedClass.gallery.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                <Image className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Noch keine Fotos</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {selectedClass.gallery.map(image => (
+                  <div key={image.id} className="relative group">
+                    <div className="aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700">
+                      {image.type === 'base64' ? (
+                        <img src={image.data} alt={image.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <LinkIcon className="w-12 h-12 text-slate-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center p-2">
+                      <p className="text-white font-semibold text-sm text-center mb-2">{image.title}</p>
+                      <button onClick={() => deleteImage(image.id)} className="p-2 bg-red-500 hover:bg-red-600 rounded-lg">
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ==================== GALLERY VIEW (STUDENT) ====================
+function GalleryView({ gallery }) {
+  if (!gallery || gallery.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <Image className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+        <p className="text-xl text-slate-500 dark:text-slate-400">Keine Fotos</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Foto-Galerie</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {gallery.map(image => (
+          <div key={image.id} className="group">
+            <div className="aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 mb-2">
+              {image.type === 'base64' ? (
+                <img src={image.data} alt={image.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <LinkIcon className="w-12 h-12 text-slate-400" />
+                </div>
+              )}
+            </div>
+            <p className="font-semibold text-slate-800 dark:text-white text-sm">{image.title}</p>
+            {image.description && <p className="text-xs text-slate-500 dark:text-slate-400">{image.description}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 function AppointmentsManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
   const [newAppointment, setNewAppointment] = useState({
     title: '',
@@ -1413,6 +1578,7 @@ function ClassViewVollstaendig({ classData, studentName, onLogout, updateClass, 
           {activeTab === 'materials' && <MaterialsList materials={classData.materials || []} />}
           {activeTab === 'homework' && <HomeworkList homework={classData.homework || []} studentName={studentName} updateClass={updateClass} />}
           {activeTab === 'appointments' && <AppointmentsList appointments={classData.appointments || []} />}
+          {activeTab === 'gallery' && <GalleryView gallery={classData.gallery || []} />}
         </div>
       </div>
     </div>
