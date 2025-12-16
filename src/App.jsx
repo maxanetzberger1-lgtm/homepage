@@ -371,6 +371,17 @@ function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, togg
         {/* Tabs */}
         <div className="flex gap-2 mb-8 bg-white p-2 rounded-xl shadow-sm overflow-x-auto">
           <button
+            onClick={() => { setActiveTab('dashboard'); setSelectedClassId(null); }}
+            className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'dashboard'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Grid className="w-4 h-4" />
+            Dashboard
+          </button>
+          <button
             onClick={() => { setActiveTab('overview'); setSelectedClassId(null); }}
             className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
               activeTab === 'overview'
