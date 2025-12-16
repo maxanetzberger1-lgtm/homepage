@@ -420,6 +420,17 @@ function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, togg
           >
             Termine
           </button>
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'gallery'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Image className="w-4 h-4" />
+            Galerie
+          </button>
         </div>
 
         {/* Content based on active tab */}
@@ -1578,6 +1589,17 @@ function ClassViewVollstaendig({ classData, studentName, onLogout, updateClass, 
           >
             <Calendar className="w-5 h-5" />
             Termine
+          </button>
+          <button
+            onClick={() => setActiveTab('gallery')}
+            className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'gallery'
+                ? 'bg-emerald-500 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Image className="w-5 h-5" />
+            Galerie
           </button>
         </div>
 
