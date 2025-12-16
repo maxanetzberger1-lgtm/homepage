@@ -1082,7 +1082,15 @@ function HomeworkManager({ classes, selectedClassId, setSelectedClassId, onUpdat
                                     <div className="flex-1">
                                       <p className="font-semibold text-slate-800 dark:text-white">{sub.studentName}</p>
                                       <p className="text-xs text-slate-500 dark:text-slate-400">Abgegeben: {new Date(sub.submittedAt).toLocaleString('de-DE')}</p>
-                                      {sub.file && <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">📎 {sub.file.name}</p>}
+                                      {sub.file && (
+                                        <button 
+                                          onClick={() => downloadFile(sub.file, `${sub.studentName}_${hw.title}`)} 
+                                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1 flex items-center gap-1"
+                                        >
+                                          <Download className="w-3 h-3" />
+                                          {sub.file.name}
+                                        </button>
+                                      )}
                                       {sub.comment && <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 italic">"{sub.comment}"</p>}
                                     </div>
                                     <button onClick={() => gradeSubmission(hw.id, sub.id)} className={`p-2 rounded-lg ${sub.status === 'graded' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="Als bewertet markieren">
