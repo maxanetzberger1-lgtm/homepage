@@ -1,6 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Upload, Book, Users, Lock, Plus, X, Download, Eye, EyeOff, Trash2, Edit2, Check, AlertCircle, LogOut, FileText, Link as LinkIcon, Save, Clock, Sun, Moon, Image, Bell, Grid, BarChart3, User, CheckCircle, XCircle, Loader, Send } from 'lucide-react';
 
+// ==================== TOAST NOTIFICATIONS ====================
+const Toast = ({ message, type = 'success', onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const colors = {
+    success: 'bg-emerald-500',
+    error: 'bg-red-500',
+    warning: 'bg-amber-500',
+    info: 'bg-blue-500'
+  };
+
+  return (
+    <div className={`fixed top-4 right-4 ${colors[type]} text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-in z-50`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="hover:bg-white/20 rounded p-1">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+// Toast Hook
+function useToast() {
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const ToastContainer = () => (
+    toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+  );
+
+  return { showToast, ToastContainer };
+}
+
+// ==================== HOMEWORK STATUS HELPER ====================
+function getHomeworkStatus(dueDate) {
+  const due = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysUntil = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+  if (daysUntil < 0) {
+    return { status: 'overdue', color: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800', textColor: 'text-red-600 dark:text-red-400', label: 'ÜBERFÄLLIG' };
+  }
+  if (daysUntil <= 3) {
+    return { status: 'urgent', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800', textColor: 'text-amber-600 dark:text-amber-400', label: `${daysUntil} Tag${daysUntil !== 1 ? 'e' : ''}` };
+  }
+  return { status: 'normal', color: 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600', textColor: 'text-slate-600 dark:text-slate-400', label: `${daysUntil} Tage` };
+}
+
+// ==================== SUBMISSION PROGRESS ====================
+function SubmissionProgress({ totalStudents = 20, submissions = [] }) {
+  const submittedCount = submissions.length;
+  const percentage = totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0;
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between text-sm mb-1">
+        <span className="text-slate-600 dark:text-slate-300 font-medium">Abgaben</span>
+        <span className="text-slate-600 dark:text-slate-300">{submittedCount}/{totalStudents} ({percentage}%)</span>
+      </div>
+      <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2 overflow-hidden">
+        <div className={`h-full transition-all duration-500 ${percentage >= 100 ? 'bg-emerald-500' : percentage >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`} style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+
 // Hauptkomponente
 
 
@@ -845,6 +919,8 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
   const [newMaterial, setNewMaterial] = useState({ title: '', description: '', subject: '' });
   const [materialFile, setMaterialFile] = useState(null);
   const [showFolderInput, setShowFolderInput] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
 
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
@@ -952,7 +1028,7 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
         <>
           {/* Breadcrumbs */}
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-6">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap transition-all">
               <button onClick={() => setCurrentPath([])} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">📁 Root</button>
               {currentPath.map((folder, idx) => (
                 <div key={idx} className="flex items-center gap-2">
@@ -960,6 +1036,35 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
                   <button onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">{folder}</button>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Search + Sort */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4 mb-6">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Suche nach Datei oder Ordner..."
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+              >
+                <option value="name">Nach Name (A-Z)</option>
+                <option value="date">Nach Datum (Neueste)</option>
+                <option value="type">Nach Typ (Ordner zuerst)</option>
+              </select>
             </div>
           </div>
 
@@ -1005,14 +1110,51 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
               Inhalt ({currentFolder?.children?.length || 0} Einträge)
             </h3>
 
-            {!currentFolder || currentFolder.children.length === 0 ? (
+            {(() => {
+              let items = currentFolder?.children || [];
+              
+              // Search filter
+              if (searchTerm) {
+                items = items.filter(item => 
+                  item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+              }
+              
+              // Sort
+              items = [...items].sort((a, b) => {
+                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                if (sortBy === 'date') return (b.uploadedAt || b.date || 0) > (a.uploadedAt || a.date || 0) ? 1 : -1;
+                if (sortBy === 'type') {
+                  if (a.type === 'folder' && b.type !== 'folder') return -1;
+                  if (a.type !== 'folder' && b.type === 'folder') return 1;
+                  return a.name.localeCompare(b.name);
+                }
+                return 0;
+              });
+              
+              return items;
+            })().length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>Ordner ist leer</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {currentFolder.children.map(item => (
+                {(() => {
+                  let items = currentFolder?.children || [];
+                  if (searchTerm) items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                  items = [...items].sort((a, b) => {
+                    if (sortBy === 'name') return a.name.localeCompare(b.name);
+                    if (sortBy === 'date') return (b.uploadedAt || b.date || 0) > (a.uploadedAt || a.date || 0) ? 1 : -1;
+                    if (sortBy === 'type') {
+                      if (a.type === 'folder' && b.type !== 'folder') return -1;
+                      if (a.type !== 'folder' && b.type === 'folder') return 1;
+                      return a.name.localeCompare(b.name);
+                    }
+                    return 0;
+                  });
+                  return items;
+                })().map(item => (
                   <div key={item.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors">
                     <div className="flex items-center gap-3 flex-1">
                       {item.type === 'folder' ? (
@@ -1061,6 +1203,8 @@ function MaterialsManager({ classes, selectedClassId, setSelectedClassId, onUpda
 function HomeworkManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
   const [newHomework, setNewHomework] = useState({ title: '', description: '', dueDate: '', subject: '' });
   const [viewingSubmissions, setViewingSubmissions] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
   const addHomework = () => {
@@ -1125,31 +1269,72 @@ function HomeworkManager({ classes, selectedClassId, setSelectedClassId, onUpdat
           </div>
 
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Hausaufgaben ({selectedClass.homework?.length || 0})</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Hausaufgaben ({selectedClass.homework?.length || 0})</h3>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-3 mb-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Suche Hausaufgabe..."
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm"
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm"
+              >
+                <option value="all">Alle</option>
+                <option value="overdue">Überfällig</option>
+                <option value="urgent">Dringend</option>
+                <option value="normal">Normal</option>
+              </select>
+            </div>
+
             {!selectedClass.homework || selectedClass.homework.length === 0 ? (
               <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 <Book className="w-12 h-12 mx-auto mb-3 opacity-50" /><p>Noch keine Hausaufgaben</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {selectedClass.homework.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).map(hw => {
-                  const dueDate = new Date(hw.dueDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const isOverdue = dueDate < today;
+                {selectedClass.homework.filter(hw => {
+                  // Search filter
+                  if (searchTerm && !hw.title.toLowerCase().includes(searchTerm.toLowerCase()) && 
+                      !hw.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
+                    return false;
+                  }
+                  // Status filter
+                  if (filterStatus !== 'all') {
+                    const status = getHomeworkStatus(hw.dueDate).status;
+                    if (filterStatus !== status) return false;
+                  }
+                  return true;
+                }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).map(hw => {
+                  const status = getHomeworkStatus(hw.dueDate);
                   const submissionCount = hw.submissions?.length || 0;
 
                   return (
-                    <div key={hw.id} className={`border-2 rounded-xl p-4 ${isOverdue ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20' : 'border-slate-100 dark:border-slate-700'}`}>
+                    <div key={hw.id} className={`border-2 rounded-xl p-transition-all duration-200 hover:shadow-lg 4 ${status.color}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             {hw.subject && <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">{hw.subject}</span>}
-                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Bis: {dueDate.toLocaleDateString('de-DE')}{isOverdue && ' (ÜBERFÄLLIG)'}</span>
+                            <span className={`text-xs font-medium ${status.textColor}`}>Bis: {new Date(hw.dueDate).toLocaleDateString('de-DE')} • {status.label}</span>
                             {submissionCount > 0 && <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded text-xs font-medium">{submissionCount} Abgabe{submissionCount !== 1 ? 'n' : ''}</span>}
                           </div>
                           <h4 className="font-semibold text-slate-800 dark:text-white mb-1">{hw.title}</h4>
                           {hw.description && <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{hw.description}</p>}
+                          
+                          <SubmissionProgress totalStudents={20} submissions={hw.submissions || []} />
                           
                           {submissionCount > 0 && (
                             <button onClick={() => setViewingSubmissions(viewingSubmissions === hw.id ? null : hw.id)} className="mt-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
@@ -1795,7 +1980,7 @@ function AppointmentsManager({ classes, selectedClassId, setSelectedClassId, onU
                     return (
                       <div 
                         key={apt.id} 
-                        className={`border-2 rounded-xl p-4 transition-all ${
+                        className={`border-2 rounded-xl p-transition-all duration-200 hover:shadow-lg 4 transition-all ${
                           isPast 
                             ? 'border-slate-200 bg-slate-50 opacity-60' 
                             : 'border-slate-100 hover:border-purple-200'
@@ -1975,6 +2160,8 @@ function ClassViewVollstaendig({ classData, studentName, onLogout, updateClass, 
 // Materials List (Student View)
 function MaterialsList({ materials }) {
   const [currentPath, setCurrentPath] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
 
   const getCurrentFolder = () => {
     let folder = { children: materials || [] };
@@ -2000,7 +2187,7 @@ function MaterialsList({ materials }) {
     <div>
       {/* Breadcrumbs */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap transition-all">
           <button onClick={() => setCurrentPath([])} className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium">📁 Root</button>
           {currentPath.map((folder, idx) => (
             <div key={idx} className="flex items-center gap-2">
@@ -2011,14 +2198,71 @@ function MaterialsList({ materials }) {
         </div>
       </div>
 
-      {!currentFolder || currentFolder.children.length === 0 ? (
+      {/* Search + Sort */}
+      <div className="mb-6">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Suche..."
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+            />
+            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+          >
+            <option value="name">Nach Name</option>
+            <option value="date">Nach Datum</option>
+            <option value="type">Nach Typ</option>
+          </select>
+        </div>
+      </div>
+
+      {(() => {
+        let items = currentFolder?.children || [];
+        if (searchTerm) items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        items = [...items].sort((a, b) => {
+          if (sortBy === 'name') return a.name.localeCompare(b.name);
+          if (sortBy === 'date') return (b.uploadedAt || b.date || 0) > (a.uploadedAt || a.date || 0) ? 1 : -1;
+          if (sortBy === 'type') {
+            if (a.type === 'folder' && b.type !== 'folder') return -1;
+            if (a.type !== 'folder' && b.type === 'folder') return 1;
+            return a.name.localeCompare(b.name);
+          }
+          return 0;
+        });
+        return items;
+      })().length === 0 ? (
         <div className="text-center py-12">
           <FileText className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
           <p className="text-xl text-slate-500 dark:text-slate-400">Ordner ist leer</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {currentFolder.children.map(item => (
+          {(() => {
+            let items = currentFolder?.children || [];
+            if (searchTerm) items = items.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            items = [...items].sort((a, b) => {
+              if (sortBy === 'name') return a.name.localeCompare(b.name);
+              if (sortBy === 'date') return (b.uploadedAt || b.date || 0) > (a.uploadedAt || a.date || 0) ? 1 : -1;
+              if (sortBy === 'type') {
+                if (a.type === 'folder' && b.type !== 'folder') return -1;
+                if (a.type !== 'folder' && b.type === 'folder') return 1;
+                return a.name.localeCompare(b.name);
+              }
+              return 0;
+            });
+            return items;
+          })().map(item => (
             <div key={item.id} className="bg-white dark:bg-slate-700 p-4 rounded-xl border border-slate-200 dark:border-slate-600 hover:shadow-md transition-shadow">
               {item.type === 'folder' ? (
                 <button onClick={() => setCurrentPath([...currentPath, item.name])} className="w-full text-left flex items-center gap-3">
@@ -2106,16 +2350,16 @@ function HomeworkList({ homework, studentName, updateClass }) {
       {homework.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).map((hw) => {
         const dueDate = new Date(hw.dueDate);
         const isOverdue = dueDate < today;
-        const daysUntil = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        const status = getHomeworkStatus(hw.dueDate);
         const mySubmission = hw.submissions?.find(s => s.studentName === studentName);
 
         return (
-          <div key={hw.id} className={`border-2 rounded-xl p-5 transition-all ${mySubmission ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20' : isOverdue ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : daysUntil <= 3 ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20' : 'border-slate-100 dark:border-slate-700 hover:shadow-md'}`}>
+          <div key={hw.id} className={`border-2 rounded-xl p-transition-all duration-200 hover:shadow-lg 5 transition-all ${mySubmission ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20' : status.color}`}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 {hw.subject && <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium">{hw.subject}</span>}
-                <span className={`text-sm font-medium ${mySubmission ? 'text-emerald-600 dark:text-emerald-400' : isOverdue ? 'text-red-600 dark:text-red-400' : daysUntil <= 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                  {mySubmission ? '✓ Abgegeben' : `Bis: ${dueDate.toLocaleDateString('de-DE')}${!isOverdue && daysUntil >= 0 ? ` (${daysUntil} ${daysUntil === 1 ? 'Tag' : 'Tage'})` : isOverdue ? ' (ÜBERFÄLLIG)' : ''}`}
+                <span className={`text-sm font-medium ${mySubmission ? 'text-emerald-600 dark:text-emerald-400' : status.textColor}`}>
+                  {mySubmission ? '✓ Abgegeben' : `Bis: ${new Date(hw.dueDate).toLocaleDateString('de-DE')} • ${status.label}`}
                 </span>
               </div>
             </div>
@@ -2192,7 +2436,7 @@ function AppointmentsList({ appointments }) {
         return (
           <div 
             key={apt.id} 
-            className={`border-2 rounded-xl p-5 transition-all ${
+            className={`border-2 rounded-xl p-transition-all duration-200 hover:shadow-lg 5 transition-all ${
               isPast 
                 ? 'border-slate-200 bg-slate-50 opacity-60' 
                 : 'border-slate-100 hover:border-purple-200 hover:shadow-md'
