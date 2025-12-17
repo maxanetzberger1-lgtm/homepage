@@ -292,7 +292,7 @@ function LoginScreen({ onAdminLogin, onClassLogin, classes, adminPassword, setAd
 function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, toggleDarkMode }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedClassId, setSelectedClassId] = useState(null);
-  const [newClass, setNewClass] = useState({ name: '', year: '', password: '', subjects: [], gallery: [] });
+  const [newClass, setNewClass] = useState({ name: '', year: '', password: '', subjects: [], gallery: [], customTabs: [] });
 
   const createClass = () => {
     if (!newClass.name || !newClass.password) {
@@ -442,6 +442,17 @@ function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, togg
             <Image className="w-4 h-4" />
             Galerie
           </button>
+          <button
+            onClick={() => setActiveTab('customtabs')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'customtabs'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Edit2 className="w-4 h-4" />
+            Eigene Tabs
+          </button>
         </div>
 
         {/* Content based on active tab */}
@@ -494,6 +505,15 @@ function AdminPanelVollstaendig({ classes, saveClasses, onLogout, darkMode, togg
 
         {activeTab === 'gallery' && (
           <GalleryManager 
+            classes={classes}
+            selectedClassId={selectedClassId}
+            setSelectedClassId={setSelectedClassId}
+            onUpdateClass={updateClass}
+          />
+        )}
+
+        {activeTab === 'customtabs' && (
+          <CustomTabManager 
             classes={classes}
             selectedClassId={selectedClassId}
             setSelectedClassId={setSelectedClassId}
@@ -1331,6 +1351,290 @@ function GalleryView({ gallery }) {
 }
 
 
+// ==================== CUSTOM TAB MANAGER ====================
+function CustomTabManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
+  const [editingTab, setEditingTab] = useState(null);
+  const [newTabName, setNewTabName] = useState('');
+  const [showNewTab, setShowNewTab] = useState(false);
+  const [newElement, setNewElement] = useState({ type: 'text', content: '' });
+  const [editingElement, setEditingElement] = useState(null);
+
+  const selectedClass = classes.find(c => c.id === selectedClassId);
+  const customTabs = selectedClass?.customTabs || [];
+
+  // Create new tab
+  const createTab = () => {
+    if (!newTabName.trim()) {
+      alert('Bitte Tab-Namen eingeben');
+      return;
+    }
+    const tab = { id: Date.now().toString(), name: newTabName, elements: [] };
+    const tabs = [...customTabs, tab];
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+    setNewTabName('');
+    setShowNewTab(false);
+    setEditingTab(tab.id);
+  };
+
+  // Delete tab
+  const deleteTab = (tabId) => {
+    if (!window.confirm('Tab wirklich löschen?')) return;
+    const tabs = customTabs.filter(t => t.id !== tabId);
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+    setEditingTab(null);
+  };
+
+  // Add element to tab
+  const addElement = (tabId) => {
+    if (!newElement.content.trim()) {
+      alert('Bitte Inhalt eingeben');
+      return;
+    }
+    const tabs = customTabs.map(tab => {
+      if (tab.id === tabId) {
+        const element = { id: Date.now().toString(), ...newElement };
+        return { ...tab, elements: [...tab.elements, element] };
+      }
+      return tab;
+    });
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+    setNewElement({ type: 'text', content: '' });
+  };
+
+  // Delete element
+  const deleteElement = (tabId, elementId) => {
+    const tabs = customTabs.map(tab => {
+      if (tab.id === tabId) {
+        return { ...tab, elements: tab.elements.filter(e => e.id !== elementId) };
+      }
+      return tab;
+    });
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+  };
+
+  // Move element
+  const moveElement = (tabId, elementId, direction) => {
+    const tabs = customTabs.map(tab => {
+      if (tab.id === tabId) {
+        const elements = [...tab.elements];
+        const idx = elements.findIndex(e => e.id === elementId);
+        if (direction === 'up' && idx > 0) {
+          [elements[idx], elements[idx - 1]] = [elements[idx - 1], elements[idx]];
+        } else if (direction === 'down' && idx < elements.length - 1) {
+          [elements[idx], elements[idx + 1]] = [elements[idx + 1], elements[idx]];
+        }
+        return { ...tab, elements };
+      }
+      return tab;
+    });
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+  };
+
+  // Update element
+  const updateElement = (tabId, elementId, newContent) => {
+    const tabs = customTabs.map(tab => {
+      if (tab.id === tabId) {
+        return { ...tab, elements: tab.elements.map(e => e.id === elementId ? { ...e, content: newContent } : e) };
+      }
+      return tab;
+    });
+    onUpdateClass(selectedClassId, { customTabs: tabs });
+    setEditingElement(null);
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Eigene Tabs verwalten</h2>
+
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Klasse auswählen</label>
+        <select value={selectedClassId || ''} onChange={(e) => { setSelectedClassId(e.target.value); setEditingTab(null); }} className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:border-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+          <option value="">-- Klasse wählen --</option>
+          {classes.map(cls => <option key={cls.id} value={cls.id}>{cls.name} {cls.year && `(${cls.year})`}</option>)}
+        </select>
+      </div>
+
+      {selectedClass && (
+        <>
+          {/* Create New Tab */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">📑 Neuer Tab</h3>
+            {showNewTab ? (
+              <div className="space-y-3">
+                <input type="text" value={newTabName} onChange={(e) => setNewTabName(e.target.value)} placeholder="Tab-Name (z.B. 'Wichtige Links', 'Infos')" className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                <div className="flex gap-2">
+                  <button onClick={createTab} className="flex-1 bg-emerald-500 text-white py-2 rounded-lg hover:bg-emerald-600">Erstellen</button>
+                  <button onClick={() => { setShowNewTab(false); setNewTabName(''); }} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded-lg">Abbrechen</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowNewTab(true)} className="w-full bg-emerald-500 text-white py-3 rounded-lg hover:bg-emerald-600 font-semibold flex items-center justify-center gap-2">
+                <Plus className="w-5 h-5" />
+                Neuen Tab erstellen
+              </button>
+            )}
+          </div>
+
+          {/* Existing Tabs */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Vorhandene Tabs ({customTabs.length})</h3>
+            {customTabs.length === 0 ? (
+              <p className="text-slate-500 dark:text-slate-400 text-center py-4">Noch keine eigenen Tabs erstellt</p>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                {customTabs.map(tab => (
+                  <button key={tab.id} onClick={() => setEditingTab(tab.id)} className={`px-4 py-2 rounded-lg font-medium transition-all ${editingTab === tab.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'}`}>
+                    {tab.name} ({tab.elements.length})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Tab Editor */}
+          {editingTab && customTabs.find(t => t.id === editingTab) && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+                  ✏️ Bearbeite: {customTabs.find(t => t.id === editingTab).name}
+                </h3>
+                <button onClick={() => deleteTab(editingTab)} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Tab löschen
+                </button>
+              </div>
+
+              {/* Add Element */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 mb-6">
+                <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Element hinzufügen</h4>
+                <div className="space-y-3">
+                  <select value={newElement.type} onChange={(e) => setNewElement({ ...newElement, type: e.target.value, content: '' })} className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white">
+                    <option value="heading">📌 Überschrift</option>
+                    <option value="text">📝 Textblock</option>
+                    <option value="list">📋 Liste</option>
+                    <option value="link">🔗 Link</option>
+                  </select>
+                  
+                  {newElement.type === 'heading' && (
+                    <input type="text" value={newElement.content} onChange={(e) => setNewElement({ ...newElement, content: e.target.value })} placeholder="Überschrift..." className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                  )}
+                  {newElement.type === 'text' && (
+                    <textarea value={newElement.content} onChange={(e) => setNewElement({ ...newElement, content: e.target.value })} placeholder="Text..." rows={4} className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                  )}
+                  {newElement.type === 'list' && (
+                    <textarea value={newElement.content} onChange={(e) => setNewElement({ ...newElement, content: e.target.value })} placeholder="Ein Punkt pro Zeile..." rows={4} className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                  )}
+                  {newElement.type === 'link' && (
+                    <div className="space-y-2">
+                      <input type="text" value={newElement.content} onChange={(e) => setNewElement({ ...newElement, content: e.target.value })} placeholder="Link-Text|URL (z.B. 'Google|https://google.com')" className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Format: Text|URL</p>
+                    </div>
+                  )}
+                  
+                  <button onClick={() => addElement(editingTab)} className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Element hinzufügen
+                  </button>
+                </div>
+              </div>
+
+              {/* Elements List */}
+              <div>
+                <h4 className="font-semibold text-slate-800 dark:text-white mb-3">
+                  Elemente ({customTabs.find(t => t.id === editingTab).elements.length})
+                </h4>
+                {customTabs.find(t => t.id === editingTab).elements.length === 0 ? (
+                  <p className="text-slate-500 dark:text-slate-400 text-center py-8">Noch keine Elemente hinzugefügt</p>
+                ) : (
+                  <div className="space-y-3">
+                    {customTabs.find(t => t.id === editingTab).elements.map((elem, idx) => (
+                      <div key={elem.id} className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">
+                            {elem.type === 'heading' ? '📌 Überschrift' : elem.type === 'text' ? '📝 Text' : elem.type === 'list' ? '📋 Liste' : '🔗 Link'}
+                          </span>
+                          <div className="flex gap-1">
+                            <button onClick={() => moveElement(editingTab, elem.id, 'up')} disabled={idx === 0} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded disabled:opacity-30">↑</button>
+                            <button onClick={() => moveElement(editingTab, elem.id, 'down')} disabled={idx === customTabs.find(t => t.id === editingTab).elements.length - 1} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded disabled:opacity-30">↓</button>
+                            <button onClick={() => setEditingElement(elem.id)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-600 rounded">✏️</button>
+                            <button onClick={() => deleteElement(editingTab, elem.id)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500">🗑️</button>
+                          </div>
+                        </div>
+                        {editingElement === elem.id ? (
+                          <div className="space-y-2">
+                            <textarea value={elem.content} onChange={(e) => updateElement(editingTab, elem.id, e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg outline-none bg-white dark:bg-slate-700 text-slate-800 dark:text-white" />
+                            <button onClick={() => setEditingElement(null)} className="px-3 py-1 bg-emerald-500 text-white rounded text-sm">Fertig</button>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{elem.content.substring(0, 100)}{elem.content.length > 100 ? '...' : ''}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ==================== CUSTOM TAB RENDERER (STUDENT VIEW) ====================
+function CustomTabRenderer({ customTabs }) {
+  if (!customTabs || customTabs.length === 0) return null;
+
+  const [activeCustomTab, setActiveCustomTab] = useState(customTabs[0]?.id);
+  const currentTab = customTabs.find(t => t.id === activeCustomTab);
+
+  return (
+    <>
+      {/* Custom Tabs Buttons */}
+      {customTabs.map(tab => (
+        <button key={tab.id} onClick={() => setActiveCustomTab(tab.id)} className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${activeCustomTab === tab.id ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+          {tab.name}
+        </button>
+      ))}
+
+      {/* Render Current Tab */}
+      {activeCustomTab && currentTab && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-8">
+          <div className="space-y-6">
+            {currentTab.elements.map(elem => {
+              if (elem.type === 'heading') {
+                return <h2 key={elem.id} className="text-2xl font-bold text-slate-800 dark:text-white">{elem.content}</h2>;
+              }
+              if (elem.type === 'text') {
+                return <p key={elem.id} className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{elem.content}</p>;
+              }
+              if (elem.type === 'list') {
+                return (
+                  <ul key={elem.id} className="list-disc list-inside space-y-2 text-slate-600 dark:text-slate-300">
+                    {elem.content.split('\n').filter(line => line.trim()).map((line, idx) => (
+                      <li key={idx}>{line}</li>
+                    ))}
+                  </ul>
+                );
+              }
+              if (elem.type === 'link') {
+                const [text, url] = elem.content.split('|');
+                return (
+                  <a key={elem.id} href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400 hover:underline font-medium">
+                    🔗 {text}
+                  </a>
+                );
+              }
+              return null;
+            })}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
 function AppointmentsManager({ classes, selectedClassId, setSelectedClassId, onUpdateClass }) {
   const [newAppointment, setNewAppointment] = useState({
     title: '',
@@ -1653,6 +1957,7 @@ function ClassViewVollstaendig({ classData, studentName, onLogout, updateClass, 
             <Image className="w-5 h-5" />
             Galerie
           </button>
+          <CustomTabRenderer customTabs={classData.customTabs || []} />
         </div>
 
         {/* Content */}
